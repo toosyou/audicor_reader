@@ -9,7 +9,7 @@ Python script for reading EKG or heart-sounds files from Audicor.
 
 Install dependency by [pip3](https://pypi.org/project/pip/):
 ```
-pip3 install --user -U numpy matplotlib tqdm
+pip3 install --user -r requirements.txt
 ```
 
 ## Usage

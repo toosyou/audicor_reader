@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib as mpl
 mpl.use('Agg')
 from matplotlib import pyplot as plt
-from tqdm import tqdm
 import argparse
 import re
 
@@ -43,13 +42,18 @@ def get_heart_sounds(filename, verbose=True):
         channel_sampling_rate = [ float(f.read(0x10)[:0xF].decode('utf-8')) for _ in range(number_channels) ]
 
         # calculate reading order
-        channel_signals = [ [] for _ in range(number_channels) ]
         data_cycle = int(main_sampling_rate // channel_sampling_rate[-1])
-        index_order = []
+        index_order = list()
+        number_value_per_cycle = [0] * number_channels
+        index_value_per_cycle = [list() for _ in range(number_channels)]
         for cycle in range(data_cycle):
             for index_channel in range(number_channels):
                 if cycle % (main_sampling_rate // channel_sampling_rate[index_channel]) == 0:
                     index_order.append(index_channel)
+
+        for index_channel, index_value in zip(index_order, range(len(index_order))):
+            number_value_per_cycle[index_channel] += 1
+            index_value_per_cycle[index_channel].append(index_value)
 
         if verbose: # print out info
             print('Headers:')
@@ -62,15 +66,17 @@ def get_heart_sounds(filename, verbose=True):
         # calculate number of cycle
         f.seek(0, 2)
         file_size = f.tell()
-        number_cycles = file_size // 2 // len(index_order)
+        number_cycles = (file_size - 512) // 2 // len(index_order)
+        print('reading... ETA: {:.1f}s'.format(file_size / 1000 / 1000 / 17 + 3.7))
 
         # reading raw file
         f.seek(0x200) # 512
-        for _ in tqdm(range(number_cycles),desc='reading '+filename, disable=not verbose):
-            for index_channel in index_order:
-                raw = f.read(0x2)
-                if len(raw) < 0x2: break # EOF
-                channel_signals[index_channel].append(np.frombuffer(raw, dtype=np.uint16)[0] )
+        values = np.frombuffer(f.read(0x2 * number_cycles * len(index_order)), dtype=np.uint16)
+        channel_signals = [ np.ndarray([number_cycles * number_value_per_cycle[i]]) for i in range(number_channels) ]
+        for index_channel in range(number_channels):
+            for index_value in range(number_value_per_cycle[index_channel]):
+                channel_signals[index_channel][index_value::number_value_per_cycle[index_channel]] = values[index_value_per_cycle[index_channel][index_value]::len(index_order)]
+
         return np.array(channel_signals)
 
 if __name__ == '__main__':
