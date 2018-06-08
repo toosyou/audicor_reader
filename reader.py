@@ -26,7 +26,7 @@ def save_fig(filename, data, figsize=(20, 20)):
     fig.tight_layout()
     fig.savefig(filename)
 
-def get_ekg(filename, filter_lowcut=3, filter_highcut=5):
+def get_ekg(filename, do_bandpass_filter=True, filter_lowcut=8, filter_highcut=250):
     with open(filename, 'rb') as f:
         f.seek(0xE8)
         data_length = int.from_bytes(f.read(2), byteorder='little', signed=False)
@@ -52,8 +52,9 @@ def get_ekg(filename, filter_lowcut=3, filter_highcut=5):
                 byteorder='little', signed=True))
 
     data = np.array(data)
-    for index_channel in range(number_channels_ekg, number_channels_ekg+number_channels_hs):
-        data[index_channel] = butter_bandpass_filter(data[index_channel], filter_lowcut, filter_highcut, 100)
+    if do_bandpass_filter:
+        for index_channel in range(number_channels_ekg, number_channels_ekg+number_channels_hs):
+            data[index_channel] = butter_bandpass_filter(data[index_channel], filter_lowcut, filter_highcut, 1000)
     return data
 
 def get_heart_sounds(filename, verbose=True):
