@@ -6,6 +6,17 @@ from matplotlib import pyplot as plt
 import argparse
 import re
 
+from scipy.signal import butter, lfilter
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+
+    b, a = butter(order, [low, high], btype='band')
+    y = lfilter(b, a, data)
+    return y
+
 def save_fig(filename, data, figsize=(20, 20)):
     mpl.rcParams['agg.path.chunksize'] = 10000
     fig = plt.figure(figsize=figsize)
@@ -15,21 +26,34 @@ def save_fig(filename, data, figsize=(20, 20)):
     fig.tight_layout()
     fig.savefig(filename)
 
-def get_ekg(filename, number_channels=10, bytes_per_value=2, value_signed=True, loc_data_start=0x4B8):
-    data = [ list() for _ in range(number_channels) ]
+def get_ekg(filename, filter_lowcut=3, filter_highcut=5):
     with open(filename, 'rb') as f:
-        f.seek(loc_data_start, 0)
-        while True:
-            raw = f.read(bytes_per_value * number_channels)
-            if len(raw) < bytes_per_value * number_channels:
+        f.seek(0xE8)
+        data_length = int.from_bytes(f.read(2), byteorder='little', signed=False)
+
+        f.seek(0xE0)
+        number_channels_ekg = int.from_bytes(f.read(2), byteorder='little', signed=False)
+
+        f.seek(0xE4)
+        number_channels_hs = int.from_bytes(f.read(2), byteorder='little', signed=False) # heart sound
+        number_channels = number_channels_ekg + number_channels_hs
+
+        data = [ list() for _ in range(number_channels) ]
+
+        # data start
+        f.seek(0x4B8)
+        for index_cycle in range(data_length):
+            raw = f.read(2 * number_channels)
+            if len(raw) < 2 * number_channels:
                 break
             for index_channel in range(number_channels):
                 data[index_channel].append(int.from_bytes(
-                    raw[index_channel*bytes_per_value: (index_channel+1)*bytes_per_value],
-                    byteorder='little', signed=value_signed))
-    data = np.array(data)
-    data = data[:, :10000]
+                raw[index_channel*2: (index_channel+1)*2],
+                byteorder='little', signed=True))
 
+    data = np.array(data)
+    for index_channel in range(number_channels_ekg, number_channels_ekg+number_channels_hs):
+        data[index_channel] = butter_bandpass_filter(data[index_channel], filter_lowcut, filter_highcut, 100)
     return data
 
 def get_heart_sounds(filename, verbose=True):
@@ -66,7 +90,8 @@ def get_heart_sounds(filename, verbose=True):
         # calculate number of cycle
         f.seek(0, 2)
         file_size = f.tell()
-        number_cycles = (file_size - 512) // 2 // len(index_order)
+        # number_cycles = (file_size - 512) // 2 // len(index_order)
+        number_cycles = 500
         print('reading... ETA: {:.1f}s'.format(file_size / 1000 / 1000 / 17 + 3.7))
 
         # reading raw file
