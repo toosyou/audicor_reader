@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+import sys
+if sys.version_info < (3, 0):
+    sys.stdout.write('ERROR: Python2.x is not supported! Please use python3.\n')
+    sys.exit(-1)
+
+import os
 import numpy as np
 import matplotlib as mpl
 mpl.use('Agg')
@@ -91,8 +97,8 @@ def get_heart_sounds(filename, verbose=True):
         # calculate number of cycle
         f.seek(0, 2)
         file_size = f.tell()
-        # number_cycles = (file_size - 512) // 2 // len(index_order)
-        number_cycles = 500
+        number_cycles = (file_size - 512) // 2 // len(index_order)
+        # number_cycles = 500
         print('reading... ETA: {:.1f}s'.format(file_size / 1000 / 1000 / 17 + 3.7))
 
         # reading raw file
@@ -111,9 +117,9 @@ if __name__ == '__main__':
     parser.add_argument(
                 '-o',
                 '--output',
-                help='Filename of saved figure. (default: output.png)',
+                help='Filename of saved figure. (default: filename.png)',
                 dest='output_filename',
-                default='output.png')
+                default=None)
 
     parser.add_argument(
                 '-sx',
@@ -130,6 +136,9 @@ if __name__ == '__main__':
                 default=20)
 
     args = parser.parse_args()
+    if args.output_filename is None:
+        args.output_filename = os.path.basename(args.filename) + '.png'
+        print('Save to {} !'.format(args.output_filename))
 
     figsize = (int(args.size_x), int(args.size_y))
     if re.search('.*.bin', args.filename, re.IGNORECASE):
