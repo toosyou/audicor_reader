@@ -11,6 +11,7 @@ mpl.use('Agg')
 from matplotlib import pyplot as plt
 import argparse
 import re
+import time, datetime
 
 from scipy.signal import butter, lfilter
 
@@ -63,7 +64,7 @@ def get_ekg(filename, do_bandpass_filter=True, filter_lowcut=8, filter_highcut=2
             data[index_channel] = butter_bandpass_filter(data[index_channel], filter_lowcut, filter_highcut, 1000)
     return data
 
-def get_heart_sounds(filename, verbose=True):
+def get_heart_sounds(filename, start_s=0, end_s=np.inf, verbose=True):
     with open(filename, 'rb') as f:
         # reading header
         f.read(0x24) # padding
@@ -86,20 +87,22 @@ def get_heart_sounds(filename, verbose=True):
             number_value_per_cycle[index_channel] += 1
             index_value_per_cycle[index_channel].append(index_value)
 
+        # calculate number of cycle
+        f.seek(0, 2) # to the end of file
+        file_size = f.tell()
+        number_cycles = (file_size - 512) // 2 // len(index_order)
+        total_time_in_sec = number_cycles * index_order.count(0) / channel_sampling_rate[0]
+
         if verbose: # print out info
-            print('Headers:')
+            print('='*37, 'INFO', '='*37)
             print('number of channels:', number_channels)
             print('main sampling rate:', main_sampling_rate)
             for index_channel in range(number_channels):
                 print('sampling rate-'+str(index_channel)+':', channel_sampling_rate[index_channel])
             print('channel reading order:', index_order)
-
-        # calculate number of cycle
-        f.seek(0, 2)
-        file_size = f.tell()
-        number_cycles = (file_size - 512) // 2 // len(index_order)
-        # number_cycles = 500
-        print('reading... ETA: {:.1f}s'.format(file_size / 1000 / 1000 / 17 + 3.7))
+            print('total time:', str(datetime.timedelta(seconds=int(total_time_in_sec))))
+            print('='*80)
+            print('reading... ETA: {:.1f}s'.format(file_size / 1000 / 1000 / 17))
 
         # reading raw file
         f.seek(0x200) # 512
@@ -108,8 +111,22 @@ def get_heart_sounds(filename, verbose=True):
         for index_channel in range(number_channels):
             for index_value in range(number_value_per_cycle[index_channel]):
                 channel_signals[index_channel][index_value::number_value_per_cycle[index_channel]] = values[index_value_per_cycle[index_channel][index_value]::len(index_order)]
+        # convert to numpy array
+        channel_signals = np.array(channel_signals)
 
-        return np.array(channel_signals)
+        # cut from start_s to end_s
+        end_s = min(end_s, total_time_in_sec)
+        if end_s > start_s:
+            for index_channel in range(number_channels):
+                start_index = int(channel_sampling_rate[index_channel] * start_s)
+                end_index = int(channel_sampling_rate[index_channel] * end_s)
+                channel_signals[index_channel] = channel_signals[index_channel][start_index:end_index]
+
+        return channel_signals
+
+def convert_time_to_sec(time_string='0:0:0'):
+    x = time.strptime(time_string,'%H:%M:%S')
+    return datetime.timedelta(hours=x.tm_hour,minutes=x.tm_min,seconds=x.tm_sec).total_seconds()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Produce ekg and heart_sound figure.')
@@ -135,15 +152,34 @@ if __name__ == '__main__':
                 dest='size_y',
                 default=20)
 
+    parser.add_argument(
+                '-st',
+                '--start-time',
+                help='Start time of plt. Only works with *.raw. (default: 0:0:0)',
+                dest='start_time')
+
+    parser.add_argument(
+                '-et',
+                '--end-time',
+                help='End time of plt. Only works with *.raw. (default: 23:59:59)',
+                dest='end_time')
+
     args = parser.parse_args()
     if args.output_filename is None:
-        args.output_filename = os.path.basename(args.filename) + '.png'
+        args.output_filename = os.path.basename(args.filename)
+        if args.start_time or args.end_time:
+            args.output_filename += '.'+ (args.start_time if args.start_time else '0:0:0')
+            args.output_filename += '-'+ (args.end_time if args.end_time else '23:59:59')
+        args.output_filename += '.png'
         print('Save to {} !'.format(args.output_filename))
 
     figsize = (int(args.size_x), int(args.size_y))
     if re.search('.*.bin', args.filename, re.IGNORECASE):
         save_fig(args.output_filename, get_ekg(args.filename), figsize=figsize)
     elif re.search('.*.raw', args.filename, re.IGNORECASE):
-        save_fig(args.output_filename, get_heart_sounds(args.filename), figsize=figsize)
+        start_s = convert_time_to_sec(args.start_time) if args.start_time else 0
+        end_s = convert_time_to_sec(args.end_time) if args.end_time else np.inf
+
+        save_fig(args.output_filename, get_heart_sounds(args.filename, start_s, end_s), figsize=figsize)
     else:
         print('ERROR: filename must be *.bin or *.raw (case-insensitive).')
