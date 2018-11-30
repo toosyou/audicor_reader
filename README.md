@@ -16,8 +16,8 @@ pip3 install --user -r requirements.txt
 ### Script
 ```
 $ python3 reader.py -h                                    
-usage: reader.py [-h] [-o OUTPUT_FILENAME] [-sx SIZE_X] [-sy SIZE_Y]
-                 [-st START_TIME] [-et END_TIME]
+usage: reader.py [-h] [-sx SIZE_X] [-sy SIZE_Y] [-st START_TIME]
+                 [-et END_TIME] [-fsg]
                  filename
 
 Produce ekg and heart_sound figure.
@@ -28,16 +28,19 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
-  -o OUTPUT_FILENAME, --output OUTPUT_FILENAME
-                        Filename of saved figure. (default: filename.png)
   -sx SIZE_X, --size-x SIZE_X
                         X-axis size of saved figure. (default: 20)
   -sy SIZE_Y, --size-y SIZE_Y
                         Y-axis size of saved figure. (default: 20)
   -st START_TIME, --start-time START_TIME
-                        Start time of plt. Only works with *.raw. (default: 0:0:0)
+                        Start time of plt. Only works with *.raw. (default:
+                        0:0:0)
   -et END_TIME, --end-time END_TIME
-                        End time of plt. Only works with *.raw. (default: 23:59:59)
+                        End time of plt. Only works with *.raw. (default:
+                        23:59:59)
+  -fsg, --force-spectrogram
+                        Calculate spectrogram of which has the data length
+                        longer than 60s.
 ```
 #### Example
 * EKG

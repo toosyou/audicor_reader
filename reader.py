@@ -14,6 +14,7 @@ import re
 import time, datetime
 
 from scipy.signal import butter, lfilter
+from scipy.signal import spectrogram
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     nyq = 0.5 * fs
@@ -24,12 +25,32 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     y = lfilter(b, a, data)
     return y
 
+def generate_spectrogram(raw_data, sampling_rates):
+    result = list()
+    for signal, sr in zip(raw_data, sampling_rates):
+        f, t, Sxx = spectrogram(signal, sr, nperseg=int(sr/10), noverlap=int(sr/20), nfft=1024)
+        result.append([f, t, Sxx])
+    return result
+
 def save_fig(filename, data, figsize=(20, 20)):
     mpl.rcParams['agg.path.chunksize'] = 10000
     fig = plt.figure(figsize=figsize)
     for index_channel, channel_data in enumerate(data):
         fig.add_subplot(data.shape[0], 1, index_channel+1)
         plt.plot(channel_data)
+    fig.tight_layout()
+    fig.savefig(filename)
+
+def save_spectrogram_fig(filename, data, figsize=(20, 20)):
+    mpl.rcParams['agg.path.chunksize'] = 10000
+    fig = plt.figure(figsize=figsize)
+    for index_signal, (f, t, Sxx) in enumerate(data):
+        ax = fig.add_subplot(len(data), 1, index_signal+1)
+        ax.pcolormesh(t, f, Sxx)
+        ax.set_ylim(0, 50)
+        plt.ylabel('Frequency [Hz]')
+
+    plt.xlabel('Time [sec]')
     fig.tight_layout()
     fig.savefig(filename)
 
@@ -62,7 +83,7 @@ def get_ekg(filename, do_bandpass_filter=True, filter_lowcut=8, filter_highcut=2
     if do_bandpass_filter:
         for index_channel in range(number_channels_ekg, number_channels_ekg+number_channels_hs):
             data[index_channel] = butter_bandpass_filter(data[index_channel], filter_lowcut, filter_highcut, 1000)
-    return data
+    return data, [1000.]*number_channels # sampling rates
 
 def get_heart_sounds(filename, start_s=0, end_s=np.inf, verbose=True):
     with open(filename, 'rb') as f:
@@ -122,7 +143,7 @@ def get_heart_sounds(filename, start_s=0, end_s=np.inf, verbose=True):
                 end_index = int(channel_sampling_rate[index_channel] * end_s)
                 channel_signals[index_channel] = channel_signals[index_channel][start_index:end_index]
 
-        return channel_signals
+        return channel_signals, channel_sampling_rate
 
 def convert_time_to_sec(time_string='0:0:0'):
     x = time.strptime(time_string,'%H:%M:%S')
@@ -131,13 +152,6 @@ def convert_time_to_sec(time_string='0:0:0'):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Produce ekg and heart_sound figure.')
     parser.add_argument('filename', help='Filename to read. Must be *.bin or *.raw (case-insensitive).')
-    parser.add_argument(
-                '-o',
-                '--output',
-                help='Filename of saved figure. (default: filename.png)',
-                dest='output_filename',
-                default=None)
-
     parser.add_argument(
                 '-sx',
                 '--size-x',
@@ -164,22 +178,44 @@ if __name__ == '__main__':
                 help='End time of plt. Only works with *.raw. (default: 23:59:59)',
                 dest='end_time')
 
+    parser.add_argument(
+                '-fsg',
+                '--force-spectrogram',
+                help='Calculate spectrogram of which has the data length longer than 60s.',
+                dest='force_spectrogram',
+                action='store_true'
+                )
+
     args = parser.parse_args()
-    if args.output_filename is None:
-        args.output_filename = os.path.basename(args.filename)
-        if args.start_time or args.end_time:
-            args.output_filename += '.'+ (args.start_time if args.start_time else '0:0:0')
-            args.output_filename += '-'+ (args.end_time if args.end_time else '23:59:59')
-        args.output_filename += '.png'
-        print('Save to {} !'.format(args.output_filename))
+
+    # calculate filenames
+    raw_data_filename = os.path.basename(args.filename)
+    if args.start_time or args.end_time:
+        raw_data_filename += '.'+ (args.start_time if args.start_time else '0:0:0')
+        raw_data_filename += '-'+ (args.end_time if args.end_time else '23:59:59')
+    spectrogram_filename = raw_data_filename + '.spectrogram.png'
+    raw_data_filename += '.png'
+    print('Save to {} & {}!'.format(raw_data_filename, spectrogram_filename))
 
     figsize = (int(args.size_x), int(args.size_y))
     if re.search('.*.bin', args.filename, re.IGNORECASE):
-        save_fig(args.output_filename, get_ekg(args.filename), figsize=figsize)
+        ekg_raw, sampling_rates = get_ekg(args.filename)
+        ekg_spectrograms = generate_spectrogram(ekg_raw, sampling_rates)
+        save_fig(raw_data_filename, ekg_raw, figsize=figsize)
+        save_spectrogram_fig(spectrogram_filename, ekg_spectrograms, figsize=figsize)
+
     elif re.search('.*.raw', args.filename, re.IGNORECASE):
         start_s = convert_time_to_sec(args.start_time) if args.start_time else 0
         end_s = convert_time_to_sec(args.end_time) if args.end_time else np.inf
 
-        save_fig(args.output_filename, get_heart_sounds(args.filename, start_s, end_s), figsize=figsize)
+        heart_sounds, sampling_rates = get_heart_sounds(args.filename, start_s, end_s)
+        save_fig(raw_data_filename, heart_sounds, figsize=figsize)
+
+        if end_s - start_s < 60 or args.force_spectrogram:
+            heart_sounds_spectrograms = generate_spectrogram(heart_sounds, sampling_rates)
+            save_spectrogram_fig(spectrogram_filename, heart_sounds_spectrograms, figsize=figsize)
+        else:
+            print('''Segment is ignored since it's too long! Use -fsg to bypass the check!''')
+
     else:
         print('ERROR: filename must be *.bin or *.raw (case-insensitive).')
