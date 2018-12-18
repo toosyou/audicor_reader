@@ -28,16 +28,26 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 def generate_spectrogram(raw_data, sampling_rates):
     result = list()
     for signal, sr in zip(raw_data, sampling_rates):
-        f, t, Sxx = spectrogram(signal, sr, nperseg=int(sr/10), noverlap=int(sr/20), nfft=1024)
+        f, t, Sxx = spectrogram(signal, sr, nperseg=int(sr/20), noverlap=int(sr/80), nfft=2048)
         result.append([f, t, Sxx])
     return result
 
-def save_fig(filename, data, figsize=(20, 20)):
+def save_fig(filename, data, grid=False, figsize=(20, 20)):
     mpl.rcParams['agg.path.chunksize'] = 10000
     fig = plt.figure(figsize=figsize)
     for index_channel, channel_data in enumerate(data):
         fig.add_subplot(data.shape[0], 1, index_channel+1)
+        if grid and index_channel < 8: # no grid on heart sound
+            y_major_grid = [510. * i for i in range(-4, 5)]
+            x_major_grid = [0.2*1000.*i for i in range(int(10/0.2+1))]
+            for yi in y_major_grid:
+                plt.axhline(yi, linestyle='-', color='r', alpha=0.1)
+            for xi in x_major_grid:
+                plt.axvline(xi, linestyle='-', color='r', alpha=0.1)
+
         plt.plot(channel_data)
+        plt.margins(x=0, y=0)
+
     fig.tight_layout()
     fig.savefig(filename)
 
@@ -201,7 +211,7 @@ if __name__ == '__main__':
     if re.search('.*.bin', args.filename, re.IGNORECASE):
         ekg_raw, sampling_rates = get_ekg(args.filename)
         ekg_spectrograms = generate_spectrogram(ekg_raw, sampling_rates)
-        save_fig(raw_data_filename, ekg_raw, figsize=figsize)
+        save_fig(raw_data_filename, ekg_raw, grid=True, figsize=figsize)
         save_spectrogram_fig(spectrogram_filename, ekg_spectrograms, figsize=figsize)
 
     elif re.search('.*.raw', args.filename, re.IGNORECASE):
