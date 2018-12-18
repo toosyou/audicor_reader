@@ -64,7 +64,7 @@ def save_spectrogram_fig(filename, data, figsize=(20, 20)):
     fig.tight_layout()
     fig.savefig(filename)
 
-def get_ekg(filename, do_bandpass_filter=True, filter_lowcut=8, filter_highcut=250):
+def get_ekg(filename, do_bandpass_filter=True, filter_lowcut=30, filter_highcut=100):
     with open(filename, 'rb') as f:
         f.seek(0xE8)
         data_length = int.from_bytes(f.read(2), byteorder='little', signed=False)
