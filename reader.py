@@ -37,11 +37,12 @@ def save_fig(filename, data, grid=False, figsize=(20, 20)):
     fig = plt.figure(figsize=figsize)
     for index_channel, channel_data in enumerate(data):
         fig.add_subplot(data.shape[0], 1, index_channel+1)
-        if grid and index_channel < 8: # no grid on heart sound
-            y_major_grid = [510. * i for i in range(-4, 5)]
+        if grid:
+            if index_channel < 8: # no voltage grid on heart sounds
+                y_major_grid = [510. * i for i in range(-4, 5)]
+                for yi in y_major_grid:
+                    plt.axhline(yi, linestyle='-', color='r', alpha=0.1)
             x_major_grid = [0.2*1000.*i for i in range(int(10/0.2+1))]
-            for yi in y_major_grid:
-                plt.axhline(yi, linestyle='-', color='r', alpha=0.1)
             for xi in x_major_grid:
                 plt.axvline(xi, linestyle='-', color='r', alpha=0.1)
 
