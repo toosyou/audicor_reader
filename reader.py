@@ -32,8 +32,10 @@ def generate_spectrogram(raw_data, sampling_rates):
         result.append([f, t, Sxx])
     return result
 
-def save_fig(filename, data, grid=False, figsize=(20, 20)):
+def save_fig(filename, data, grid=False, figsize=None):
     mpl.rcParams['agg.path.chunksize'] = 10000
+    if figsize is None:
+        figsize = (20, 2*data.shape[0])
     fig = plt.figure(figsize=figsize)
     for index_channel, channel_data in enumerate(data):
         fig.add_subplot(data.shape[0], 1, index_channel+1)
@@ -50,10 +52,14 @@ def save_fig(filename, data, grid=False, figsize=(20, 20)):
         plt.margins(x=0, y=0)
 
     fig.tight_layout()
-    fig.savefig(filename)
+    if filename: fig.savefig(filename)
+    else: plt.show()
 
-def save_spectrogram_fig(filename, data, figsize=(20, 20)):
+
+def save_spectrogram_fig(filename, data, figsize=None):
     mpl.rcParams['agg.path.chunksize'] = 10000
+    if figsize is None:
+        figsize = (20, 2*len(data))
     fig = plt.figure(figsize=figsize)
     for index_signal, (f, t, Sxx) in enumerate(data):
         ax = fig.add_subplot(len(data), 1, index_signal+1)
@@ -63,7 +69,8 @@ def save_spectrogram_fig(filename, data, figsize=(20, 20)):
 
     plt.xlabel('Time [sec]')
     fig.tight_layout()
-    fig.savefig(filename)
+    if filename: fig.savefig(filename)
+    else: plt.show()
 
 def get_ekg(filename, do_bandpass_filter=True, filter_lowcut=30, filter_highcut=100):
     with open(filename, 'rb') as f:
@@ -160,6 +167,18 @@ def convert_time_to_sec(time_string='0:0:0'):
     x = time.strptime(time_string,'%H:%M:%S')
     return datetime.timedelta(hours=x.tm_hour,minutes=x.tm_min,seconds=x.tm_sec).total_seconds()
 
+def generate_filenames(parse_args):
+    raw_data_filename = os.path.basename(parse_args.filename)
+    if parse_args.start_time or parse_args.end_time:
+        raw_data_filename += '.'+ (parse_args.start_time if parse_args.start_time else '0:0:0')
+        raw_data_filename += '-'+ (parse_args.end_time if parse_args.end_time else '23:59:59')
+    if parse_args.do_denoise:
+        raw_data_filename += '_denoised'
+    spectrogram_filename = raw_data_filename + '.spectrogram.png'
+    raw_data_filename += '.png'
+
+    return raw_data_filename, spectrogram_filename
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Produce ekg and heart_sound figure.')
     parser.add_argument('filename', help='Filename to read. Must be *.bin or *.raw (case-insensitive).')
@@ -197,25 +216,35 @@ if __name__ == '__main__':
                 action='store_true'
                 )
 
+    parser.add_argument(
+                '-dn',
+                '--denoise',
+                help='Apply wavelet thresholding and high-pass filter to ekg for denoising.',
+                dest='do_denoise',
+                action='store_true'
+                )
+
     args = parser.parse_args()
 
-    # calculate filenames
-    raw_data_filename = os.path.basename(args.filename)
-    if args.start_time or args.end_time:
-        raw_data_filename += '.'+ (args.start_time if args.start_time else '0:0:0')
-        raw_data_filename += '-'+ (args.end_time if args.end_time else '23:59:59')
-    spectrogram_filename = raw_data_filename + '.spectrogram.png'
-    raw_data_filename += '.png'
+    # generate filenames
+    raw_data_filename, spectrogram_filename = generate_filenames(args)
     print('Save to {} & {}!'.format(raw_data_filename, spectrogram_filename))
 
     figsize = (int(args.size_x), int(args.size_y))
-    if re.search('.*.bin', args.filename, re.IGNORECASE):
+    if re.search('.*.bin', args.filename, re.IGNORECASE): # EKG
         ekg_raw, sampling_rates = get_ekg(args.filename)
+        if args.do_denoise:
+            import denoise
+            ekg_raw = denoise.denoise(ekg_raw, number_channels=8) # NOTE: fixed channel number
+
         ekg_spectrograms = generate_spectrogram(ekg_raw, sampling_rates)
         save_fig(raw_data_filename, ekg_raw, grid=True, figsize=figsize)
         save_spectrogram_fig(spectrogram_filename, ekg_spectrograms, figsize=figsize)
 
-    elif re.search('.*.raw', args.filename, re.IGNORECASE):
+    elif re.search('.*.raw', args.filename, re.IGNORECASE): # Heart Sound
+        if args.do_denoise:
+            print('''--denoise option is ignored, since it's specified for EKGs.''')
+
         start_s = convert_time_to_sec(args.start_time) if args.start_time else 0
         end_s = convert_time_to_sec(args.end_time) if args.end_time else np.inf
 
@@ -226,7 +255,7 @@ if __name__ == '__main__':
             heart_sounds_spectrograms = generate_spectrogram(heart_sounds, sampling_rates)
             save_spectrogram_fig(spectrogram_filename, heart_sounds_spectrograms, figsize=figsize)
         else:
-            print('''Segment is ignored since it's too long! Use -fsg to bypass the check!''')
+            print('''The signal is too long, skipping the spectrogram! Use -fsg to bypass the check!''')
 
     else:
-        print('ERROR: filename must be *.bin or *.raw (case-insensitive).')
+        print('ERROR: filename must be *.bin or *.raw.')

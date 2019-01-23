@@ -6,6 +6,7 @@ Python script for reading EKG or heart-sounds files from Audicor.
   * [numpy](http://www.numpy.org/)
   * [matplotlib](https://matplotlib.org/)
   * [scipy](https://www.scipy.org/)
+  * [PyWavelets](https://github.com/PyWavelets/pywt)
 
 Install dependency by [pip3](https://pypi.org/project/pip/):
 ```
@@ -17,7 +18,7 @@ pip3 install --user -r requirements.txt
 ```
 $ python3 reader.py -h                                    
 usage: reader.py [-h] [-sx SIZE_X] [-sy SIZE_Y] [-st START_TIME]
-                 [-et END_TIME] [-fsg]
+                 [-et END_TIME] [-fsg] [-dn]
                  filename
 
 Produce ekg and heart_sound figure.
@@ -41,10 +42,12 @@ optional arguments:
   -fsg, --force-spectrogram
                         Calculate spectrogram of which has the data length
                         longer than 60s.
+  -dn, --denoise        Apply wavelet thresholding and high-pass filter to ekg
+                        for denoising.
 ```
 #### Example
 * EKG
-  * `python3 reader.py some_ekg.bin -o ekg.png`
+  * `python3 reader.py --denoise some_ekg.bin`
 * Heart sounds
   * `python3 reader.py some_heart_sounds.raw -st 4:0:0 -et 4:0:20`
 
@@ -56,6 +59,6 @@ if __name__ == '__main__':
     ekg_filename = '/somewhere/to/ekg/file.bin'
     heart_sounds_filename = '/somewhere/to/heart_sounds/file.raw'
 
-    ekg_data = get_ekg(ekg_filename)
-    heart_sounds_data = get_heart_sounds(heart_sounds_filename)
+    ekg_data, ekg_sampling_rates = get_ekg(ekg_filename)
+    heart_sounds_data, hs_sampling_rates = get_heart_sounds(heart_sounds_filename)
 ```
