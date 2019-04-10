@@ -7,6 +7,8 @@ Python script for reading EKG or heart-sounds files from Audicor.
   * [matplotlib](https://matplotlib.org/)
   * [scipy](https://www.scipy.org/)
   * [PyWavelets](https://github.com/PyWavelets/pywt)
+  * [tensorflow](https://www.tensorflow.org/)
+  * [keras](https://keras.io/)
 
 Install dependency by [pip3](https://pypi.org/project/pip/):
 ```
