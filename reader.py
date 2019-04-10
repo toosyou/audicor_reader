@@ -32,7 +32,7 @@ def generate_spectrogram(raw_data, sampling_rates):
         result.append([f, t, Sxx])
     return result
 
-def save_fig(filename, data, grid=False, figsize=None):
+def save_fig(filename, data, grid=False, peak_indices=None, segment_indices=None, figsize=None):
     mpl.rcParams['agg.path.chunksize'] = 10000
     if figsize is None:
         figsize = (20, 2*data.shape[0])
@@ -48,13 +48,22 @@ def save_fig(filename, data, grid=False, figsize=None):
             for xi in x_major_grid:
                 plt.axvline(xi, linestyle='-', color='r', alpha=0.1)
 
+        if segment_indices is not None:
+            for si in segment_indices:
+                plt.axvline(si, linestyle='-', color='black', alpha=1.)
+        if peak_indices is not None and index_channel < 8:
+            colors = ['g', 'm', 'y', 'k', 'c']
+            labels = ['P', 'Q', 'R', 'S', 'T']
+            for px, ci, li in zip(peak_indices, colors, labels):
+                plt.scatter(px, channel_data[px], color=ci, label=li, alpha=0.5, s=20)
+            plt.legend(prop={'size': 6})
+
         plt.plot(channel_data)
         plt.margins(x=0, y=0)
 
     fig.tight_layout()
     if filename: fig.savefig(filename)
     else: plt.show()
-
 
 def save_spectrogram_fig(filename, data, figsize=None):
     mpl.rcParams['agg.path.chunksize'] = 10000
@@ -224,6 +233,14 @@ if __name__ == '__main__':
                 action='store_true'
                 )
 
+    parser.add_argument(
+                '-sg',
+                '--segment',
+                help='Apply segmentation to ekg.',
+                dest='do_segment',
+                action='store_true'
+                )
+
     args = parser.parse_args()
 
     # generate filenames
@@ -232,18 +249,26 @@ if __name__ == '__main__':
 
     figsize = (int(args.size_x), int(args.size_y))
     if re.search('.*.bin', args.filename, re.IGNORECASE): # EKG
+        peak_indices, segment_indices = None, None
         ekg_raw, sampling_rates = get_ekg(args.filename)
         if args.do_denoise:
             import denoise
             ekg_raw = denoise.denoise(ekg_raw, number_channels=8) # NOTE: fixed channel number
+        if args.do_segment:
+            import denoise
+            import ecgseg
+            ekg_signal = ekg_raw if args.do_denoise else denoise.denoise(ekg_raw, number_channels=8)
+            peak_indices, segment_indices = ecgseg.predict('./2000-0.75.h5', ekg_signal)
 
         ekg_spectrograms = generate_spectrogram(ekg_raw, sampling_rates)
-        save_fig(raw_data_filename, ekg_raw, grid=True, figsize=figsize)
+        save_fig(raw_data_filename, ekg_raw, grid=True, peak_indices=peak_indices, segment_indices=segment_indices, figsize=figsize)
         save_spectrogram_fig(spectrogram_filename, ekg_spectrograms, figsize=figsize)
 
     elif re.search('.*.raw', args.filename, re.IGNORECASE): # Heart Sound
         if args.do_denoise:
             print('''--denoise option is ignored, since it's specified for EKGs.''')
+        if args.do_segment:
+            print('''--segment option is ignored, since it's specified for EKGs.''')
 
         start_s = convert_time_to_sec(args.start_time) if args.start_time else 0
         end_s = convert_time_to_sec(args.end_time) if args.end_time else np.inf

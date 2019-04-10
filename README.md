@@ -18,7 +18,7 @@ pip3 install --user -r requirements.txt
 ```
 $ python3 reader.py -h                                    
 usage: reader.py [-h] [-sx SIZE_X] [-sy SIZE_Y] [-st START_TIME]
-                 [-et END_TIME] [-fsg] [-dn]
+                 [-et END_TIME] [-fsg] [-dn] [-sg]
                  filename
 
 Produce ekg and heart_sound figure.
@@ -44,6 +44,7 @@ optional arguments:
                         longer than 60s.
   -dn, --denoise        Apply wavelet thresholding and high-pass filter to ekg
                         for denoising.
+  -sg, --segment        Apply segmentation to ekg.
 ```
 #### Example
 * EKG
