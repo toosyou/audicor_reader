@@ -13,7 +13,7 @@ import argparse
 import re
 import time, datetime
 
-from scipy.signal import butter, lfilter
+from scipy.signal import butter, sosfiltfilt
 from scipy.signal import spectrogram
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
@@ -21,8 +21,8 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     low = lowcut / nyq
     high = highcut / nyq
 
-    b, a = butter(order, [low, high], btype='band')
-    y = lfilter(b, a, data)
+    sos = butter(order, [low, high], analog=False, btype='band', output='sos')
+    y = sosfiltfilt(sos, data)
     return y
 
 def generate_spectrogram(raw_data, sampling_rates):
@@ -265,8 +265,6 @@ if __name__ == '__main__':
         save_spectrogram_fig(spectrogram_filename, ekg_spectrograms, figsize=figsize)
 
     elif re.search('.*.raw', args.filename, re.IGNORECASE): # Heart Sound
-        if args.do_denoise:
-            print('''--denoise option is ignored, since it's specified for EKGs.''')
         if args.do_segment:
             print('''--segment option is ignored, since it's specified for EKGs.''')
 
@@ -274,6 +272,15 @@ if __name__ == '__main__':
         end_s = convert_time_to_sec(args.end_time) if args.end_time else np.inf
 
         heart_sounds, sampling_rates = get_heart_sounds(args.filename, start_s, end_s)
+
+        if args.do_denoise: # NOTE: this may only work with 6-channel .raw file
+            if heart_sounds.shape[0] != 6:
+                print('Warning: --denoise option may only work with 6-channel .raw files, while {:d}-channel signal is given!'.format(heart_sounds.shape[0]))
+
+            import denoise
+            heart_sounds[0] = butter_bandpass_filter(heart_sounds[0], 30, 100, sampling_rates[0]) # heart sound
+            heart_sounds[1] = denoise.denoise(heart_sounds[1][np.newaxis, ...], number_channels=1)[0] # EKG
+
         save_fig(raw_data_filename, heart_sounds, figsize=figsize)
 
         if end_s - start_s < 60 or args.force_spectrogram:
