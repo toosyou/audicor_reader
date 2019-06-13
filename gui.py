@@ -60,18 +60,11 @@ class App:
         self.time_box_hour = tk.Entry(self.time_frame, validate='key', width=3, validatecommand=self.get_numerical_check(), justify=tk.RIGHT)
         self.time_box_min = tk.Entry(self.time_frame, validate='key', width=3, validatecommand=self.get_numerical_check(), justify=tk.RIGHT)
         self.time_box_sec = tk.Entry(self.time_frame, validate='key', width=3, validatecommand=self.get_numerical_check(), justify=tk.RIGHT)
-        self.time_box_hour.pack(sid=tk.RIGHT)
+        self.time_box_sec.pack(sid=tk.RIGHT)
         tk.Label(self.time_frame, text=':', width=1).pack(sid=tk.RIGHT)
         self.time_box_min.pack(sid=tk.RIGHT)
         tk.Label(self.time_frame, text=':', width=1).pack(sid=tk.RIGHT)
-        self.time_box_sec.pack(sid=tk.RIGHT)
-
-        # bind resize function
-        # self.tk_root.bind('<Configure>', self.resize_plot)
-
-    def resize_plot(self, event):
-        event.height -= 100
-        self.canvas.resize(event)
+        self.time_box_hour.pack(sid=tk.RIGHT)
 
     def rescale_plot(self):
         for ax in self.axes:
