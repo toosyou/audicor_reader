@@ -7,8 +7,14 @@ matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+import platform
 import os
-os.environ['TKDND_LIBRARY'] = './tkdnd2.9.2'
+if platform.system() == 'Linux':
+    os.environ['TKDND_LIBRARY'] = './tkdnd/tkdnd2.9.2_linux'
+elif platform.system() == 'Windows':
+    os.environ['TKDND_LIBRARY'] = './tkdnd/tkdnd2.9.2_win'
+else: # mac
+    os.environ['TKDND_LIBRARY'] = './tkdnd/tkdnd2.9.2_mac'
 from tkdnd_wrapper import TkDND
 
 import reader
