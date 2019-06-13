@@ -65,3 +65,20 @@ if __name__ == '__main__':
     ekg_data, ekg_sampling_rates = get_ekg(ekg_filename)
     heart_sounds_data, hs_sampling_rates = get_heart_sounds(heart_sounds_filename)
 ```
+# RAW Data Visulization Tool
+![raw_data_gui](./gui.png)
+
+## Usage
+Use the following instruction to open gui:
+```python3
+python3 gui.py
+```
+
+1. Drag and drop *.raw file into the window to visualize that file.
+1. Investigation time interval selection:
+    * Through scrollbar at the bottom
+    * Or type in the specified time in the boxes on the right, and press `Enter`
+1. Press 「Rescale」 button on the left or press `spacebar` to reset the scale of visulization.
+1. Press `UP` or `DOWN` arrowkey on the keyboard to change time interval of visulization.
+1. If you want to change file, drag and drop new file in again.
+1. Enjoy!
