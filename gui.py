@@ -1,9 +1,15 @@
 import re
+import datetime
+import numpy as np
 import tkinter as tk
 import matplotlib
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+
+import os
+os.environ['TKDND_LIBRARY'] = './tkdnd2.9.2'
+from tkdnd_wrapper import TkDND
 
 import reader
 
@@ -11,15 +17,11 @@ class App:
     def __init__(self):
         self.tk_root = tk.Tk()
         self.tk_root.geometry('+300+100')
-        # self.tk_root.columnconfigure(0, weight=1)
-        self.tk_root.rowconfigure(0, weight=1)
-        self.tk_root.rowconfigure(1, weight=1)
-        # self.tk_root.resizable(0, 0)
+        self.tk_root.title('Please drop in *.raw file to draw!')
 
-        self.signal, self.sampling_rates = reader.get_heart_sounds('./test.raw')
-        print('reading finished!')
-
-        self.signal_length = self.signal[0].shape[0] // self.sampling_rates[0] # in seconds
+        # has not been loaded yet
+        self.signal, self.sampling_rates = None, None
+        self.signal_length = -1 # in seconds
 
         # add signal figure
         self.time_interval = 10
@@ -28,7 +30,6 @@ class App:
         self.canvas.get_tk_widget().grid(row=0, columnspan=3, sticky='NSEW')
         self.axes = None
         self.lines = None
-        self.initial_plot()
 
         # set resizable
         self.tk_root.columnconfigure(0, weight=1)
@@ -66,6 +67,53 @@ class App:
         tk.Label(self.time_frame, text=':', width=1).pack(sid=tk.RIGHT)
         self.time_box_hour.pack(sid=tk.RIGHT)
 
+        # bind enter to input boxes
+        self.time_box_hour.bind('<Return>', self.time_box_callback)
+        self.time_box_min.bind('<Return>', self.time_box_callback)
+        self.time_box_sec.bind('<Return>', self.time_box_callback)
+
+        # support drag and drop
+        self.dnd = TkDND(self.tk_root)
+        self.dnd.bindtarget(self.canvas.get_tk_widget(), self.load_data, 'text/uri-list')
+
+        # bind left and right arrow keys to move through time
+        self.tk_root.bind('<Left>', self.go_back_time)
+        self.tk_root.bind('<Right>', self.go_to_future)
+
+    def go_to_future(self, _):
+        sec = self.time_slider.get()
+        sec = min(self.signal_length-self.time_interval-1, sec+10)
+        self.time_slider.set(sec)
+        self.time_slider_callback(sec)
+
+    def go_back_time(self, _):
+        sec = self.time_slider.get()
+        sec = max(0, sec-10)
+        self.time_slider.set(sec)
+        self.time_slider_callback(sec)
+
+    def time_box_callback(self, _):
+        hours = int(self.time_box_hour.get())
+        minutes = int(self.time_box_min.get())
+        seconds = int(self.time_box_sec.get())
+
+        total_sec = hours*60*60 + minutes*60 + seconds
+        total_sec = min(self.signal_length-self.time_interval-1, total_sec)
+
+        # reset box contant
+        self.time_slider.set(total_sec)
+        self.set_time_of_box(int(total_sec))
+        self.update_plot(int(total_sec))
+
+    def load_data(self, event):
+        filename = re.sub(r'^\{|}$', '', event.data) # remove {} in the begining or the end if any
+        self.tk_root.title(filename)
+        self.signal, self.sampling_rates = reader.get_heart_sounds(filename)
+        self.signal_length = self.signal[0].shape[0] // self.sampling_rates[0] # in seconds
+        self.time_slider.configure(to=self.signal_length-self.time_interval-1)
+        self.time_slider.set(0)
+        self.initial_plot()
+
     def rescale_plot(self):
         for ax in self.axes:
             ax.relim()
@@ -92,6 +140,10 @@ class App:
         self.set_time_of_box(int(time_in_sec))
         self.update_plot(int(time_in_sec))
 
+    @staticmethod
+    def sec_to_timestring(sec):
+        return str(datetime.timedelta(seconds=int(sec)))
+
     def initial_plot(self):
         self.figure.clf()
 
@@ -105,6 +157,9 @@ class App:
 
             channel_data = channel_data[ int(start_s*sampling_rate): int(end_s*sampling_rate)]
             line, = ax.plot(channel_data)
+            ax.set_xticks(np.linspace(0., self.time_interval*sampling_rate, num=10))
+            ax.set_xticklabels([self.sec_to_timestring(s) for s in np.linspace(start_s, end_s, num=10)])
+
             ax.margins(x=0, y=0)
             self.lines.append(line)
             self.axes.append(ax)
@@ -113,12 +168,16 @@ class App:
         self.canvas.draw()
 
     def update_plot(self, start_time):
+        if self.signal is None:
+            return
 
         start_s = start_time
         end_s = start_s + self.time_interval
 
-        for index_channel, (line, channel_data, sampling_rate) in enumerate(zip(self.lines, self.signal, self.sampling_rates)):
+        for index_channel, (ax, line, channel_data, sampling_rate) in enumerate(zip(self.axes, self.lines, self.signal, self.sampling_rates)):
             channel_data = channel_data[ int(start_s*sampling_rate): int(end_s*sampling_rate)]
+            ax.set_xticks(np.linspace(0., self.time_interval*sampling_rate, num=10))
+            ax.set_xticklabels([self.sec_to_timestring(s) for s in np.linspace(start_s, end_s, num=10)])
             line.set_ydata(channel_data)
 
         self.canvas.draw()
