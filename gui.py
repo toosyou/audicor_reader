@@ -56,7 +56,7 @@ class App:
         # add slider bar for time
         self.time_slider = tk.Scale(self.time_frame,
                                     from_=0, to=self.signal_length-self.time_interval-1,
-                                    resolution=5,
+                                    resolution=self.time_interval // 2,
                                     length=1200,
                                     showvalue='no',
                                     orient='horizontal',
@@ -85,16 +85,35 @@ class App:
         # bind left and right arrow keys to move through time
         self.tk_root.bind('<Left>', self.go_back_time)
         self.tk_root.bind('<Right>', self.go_to_future)
+        self.tk_root.bind('<space>', self.rescale_plot)
+        self.tk_root.bind('<Up>', self.increase_time_interval)
+        self.tk_root.bind('<Down>', self.decrease_time_interval)
+
+    def increase_time_interval(self, _):
+        self.time_interval = min(3600, self.time_interval * 2)
+        self.time_slider.configure(resolution=self.time_interval // 2)
+        print('Time interval:', self.time_interval, 'sec')
+
+        self.initial_plot()
+        self.update_plot(self.time_slider.get())
+
+    def decrease_time_interval(self, _):
+        self.time_interval = max(10, self.time_interval // 2)
+        self.time_slider.configure(resolution=self.time_interval // 2)
+        print('Time interval:', self.time_interval, 'sec')
+
+        self.initial_plot()
+        self.update_plot(self.time_slider.get())
 
     def go_to_future(self, _):
         sec = self.time_slider.get()
-        sec = min(self.signal_length-self.time_interval-1, sec+10)
+        sec = min(self.signal_length-self.time_interval-1, sec+self.time_interval)
         self.time_slider.set(sec)
         self.time_slider_callback(sec)
 
     def go_back_time(self, _):
         sec = self.time_slider.get()
-        sec = max(0, sec-10)
+        sec = max(0, sec-self.time_interval)
         self.time_slider.set(sec)
         self.time_slider_callback(sec)
 
@@ -120,7 +139,7 @@ class App:
         self.time_slider.set(0)
         self.initial_plot()
 
-    def rescale_plot(self):
+    def rescale_plot(self, _=None):
         for ax in self.axes:
             ax.relim()
             ax.autoscale_view()
