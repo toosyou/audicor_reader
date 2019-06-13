@@ -77,6 +77,7 @@ python3 gui.py
 1. Drag and drop *.raw file into the window to visualize that file.
 1. Investigation time interval selection:
     * Through scrollbar at the bottom
+    * Press `LEFT` or `RIGHT` arrowkey on the keyboard
     * Or type in the specified time in the boxes on the right, and press `Enter`
 1. Press 「Rescale」 button on the left or press `spacebar` to reset the scale of visulization.
 1. Press `UP` or `DOWN` arrowkey on the keyboard to change time interval of visulization.
