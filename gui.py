@@ -11,7 +11,10 @@ class App:
     def __init__(self):
         self.tk_root = tk.Tk()
         self.tk_root.geometry('+300+100')
-        self.tk_root.resizable(0, 0)
+        # self.tk_root.columnconfigure(0, weight=1)
+        self.tk_root.rowconfigure(0, weight=1)
+        self.tk_root.rowconfigure(1, weight=1)
+        # self.tk_root.resizable(0, 0)
 
         self.signal, self.sampling_rates = reader.get_heart_sounds('./test.raw')
         print('reading finished!')
@@ -22,13 +25,23 @@ class App:
         self.time_interval = 10
         self.figure = Figure(figsize=(15, 12), dpi=100)
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.tk_root)
-        self.canvas.get_tk_widget().grid(row=0, columnspan=3)
+        self.canvas.get_tk_widget().grid(row=0, columnspan=3, sticky='NSEW')
         self.axes = None
         self.lines = None
         self.initial_plot()
 
+        # set resizable
+        self.tk_root.columnconfigure(0, weight=1)
+        self.tk_root.rowconfigure(0, weight=100)
+
+        # control units
         self.time_frame = tk.Frame(borderwidth=10)
-        self.time_frame.grid(row=1, column=0, columnspan=8, sticky='NSWE')
+        self.time_frame.grid(row=1, column=0, columnspan=8, sticky='NSEW')
+
+        # set resizable
+        self.tk_root.columnconfigure(0, weight=1)
+        self.tk_root.rowconfigure(1, weight=1)
+
         # add rescale button
         self.rescale_button = tk.Button(self.time_frame, width=5, text='Rescale', command=self.rescale_plot)
         self.rescale_button.pack(side=tk.LEFT, padx=5)
@@ -41,17 +54,24 @@ class App:
                                     showvalue='no',
                                     orient='horizontal',
                                     command=self.time_slider_callback)
-        self.time_slider.pack(side=tk.LEFT, padx=5)
+        self.time_slider.pack(side=tk.LEFT, padx=5, expand=True, fill='both')
 
         # add time input
         self.time_box_hour = tk.Entry(self.time_frame, validate='key', width=3, validatecommand=self.get_numerical_check(), justify=tk.RIGHT)
         self.time_box_min = tk.Entry(self.time_frame, validate='key', width=3, validatecommand=self.get_numerical_check(), justify=tk.RIGHT)
         self.time_box_sec = tk.Entry(self.time_frame, validate='key', width=3, validatecommand=self.get_numerical_check(), justify=tk.RIGHT)
-        self.time_box_hour.pack(sid=tk.LEFT)
-        tk.Label(self.time_frame, text=':', width=1).pack(sid=tk.LEFT)
-        self.time_box_min.pack(sid=tk.LEFT)
-        tk.Label(self.time_frame, text=':', width=1).pack(sid=tk.LEFT)
-        self.time_box_sec.pack(sid=tk.LEFT)
+        self.time_box_hour.pack(sid=tk.RIGHT)
+        tk.Label(self.time_frame, text=':', width=1).pack(sid=tk.RIGHT)
+        self.time_box_min.pack(sid=tk.RIGHT)
+        tk.Label(self.time_frame, text=':', width=1).pack(sid=tk.RIGHT)
+        self.time_box_sec.pack(sid=tk.RIGHT)
+
+        # bind resize function
+        # self.tk_root.bind('<Configure>', self.resize_plot)
+
+    def resize_plot(self, event):
+        event.height -= 100
+        self.canvas.resize(event)
 
     def rescale_plot(self):
         for ax in self.axes:
