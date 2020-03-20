@@ -52,6 +52,8 @@ def ekg_denoise(data, number_channels=None):
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     '''Butter bandpass filter
 
+    source: https://stackoverflow.com/questions/12093594/how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
+
     args:
         data: np.array of shape [n_samples]
     '''
@@ -65,8 +67,6 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 
 def heart_sound_denoise(data, lowcut, highcut, fs, order=5):
     '''Denoise heart sound signal with band pass filters and return.
-
-    source: https://stackoverflow.com/questions/12093594/how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
 
     args:
         data: np.ndarray of shape [n_channels, n_samples]
