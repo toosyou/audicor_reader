@@ -5,7 +5,6 @@ from scipy.signal import medfilt
 import multiprocessing as mp
 
 from scipy.signal import butter, sosfiltfilt
-from scipy.signal import spectrogram
 
 def wavelet_threshold(data, wavelet='sym8', noiseSigma=14):
     levels = int(np.floor(np.log2(data.shape[0])))
