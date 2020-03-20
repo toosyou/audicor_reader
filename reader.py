@@ -12,18 +12,9 @@ from matplotlib import pyplot as plt
 import argparse
 import re
 import time, datetime
-
-from scipy.signal import butter, sosfiltfilt
 from scipy.signal import spectrogram
 
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
-    nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-
-    sos = butter(order, [low, high], analog=False, btype='band', output='sos')
-    y = sosfiltfilt(sos, data)
-    return y
+import denoise
 
 def generate_spectrogram(raw_data, sampling_rates):
     result = list()
@@ -107,9 +98,9 @@ def get_ekg(filename, do_bandpass_filter=True, filter_lowcut=30, filter_highcut=
                 byteorder='little', signed=True))
 
     data = np.array(data)
-    if do_bandpass_filter:
-        for index_channel in range(number_channels_ekg, number_channels_ekg+number_channels_hs):
-            data[index_channel] = butter_bandpass_filter(data[index_channel], filter_lowcut, filter_highcut, 1000)
+
+    hs_data = data[number_channels_ekg: number_channels_ekg+number_channels_hs]
+    if do_bandpass_filter: hs_data = denoise.heart_sound_denoise(hs_data, filter_lowcut, filter_highcut, 1000)
     return data, [1000.]*number_channels # sampling rates
 
 def get_heart_sounds(filename, start_s=0, end_s=np.inf, verbose=True):
@@ -252,10 +243,8 @@ if __name__ == '__main__':
         peak_indices, segment_indices = None, None
         ekg_raw, sampling_rates = get_ekg(args.filename)
         if args.do_denoise:
-            import denoise
             ekg_raw = denoise.denoise(ekg_raw, number_channels=8) # NOTE: fixed channel number
         if args.do_segment:
-            import denoise
             import ecgseg
             ekg_signal = ekg_raw if args.do_denoise else denoise.denoise(ekg_raw, number_channels=8)
             peak_indices, segment_indices = ecgseg.predict('./2000-0.75.h5', ekg_signal)
@@ -277,8 +266,7 @@ if __name__ == '__main__':
             if heart_sounds.shape[0] != 6:
                 print('Warning: --denoise option may only work with 6-channel .raw files, while {:d}-channel signal is given!'.format(heart_sounds.shape[0]))
 
-            import denoise
-            heart_sounds[0] = butter_bandpass_filter(heart_sounds[0], 30, 100, sampling_rates[0]) # heart sound
+            heart_sounds[0:1] = denoise.heart_sound_denoise(heart_sounds[0:1], 30, 100, sampling_rates[0])# heart sound
             heart_sounds[1] = denoise.denoise(heart_sounds[1][np.newaxis, ...], number_channels=1)[0] # EKG
 
         save_fig(raw_data_filename, heart_sounds, figsize=figsize)
