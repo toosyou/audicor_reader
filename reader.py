@@ -14,7 +14,7 @@ import re
 import time, datetime
 from scipy.signal import spectrogram
 
-import denoise
+from . import denoise
 
 def generate_spectrogram(raw_data, sampling_rates):
     result = list()
