@@ -246,10 +246,10 @@ if __name__ == '__main__':
         peak_indices, segment_indices = None, None
         ekg_raw, sampling_rates = get_ekg(args.filename)
         if args.do_denoise:
-            ekg_raw = denoise.denoise(ekg_raw, number_channels=8) # NOTE: fixed channel number
+            ekg_raw = denoise.denoise(ekg_raw, 1000, number_channels=8) # NOTE: fixed channel number
         if args.do_segment:
             import ecgseg
-            ekg_signal = ekg_raw if args.do_denoise else denoise.denoise(ekg_raw, number_channels=8)
+            ekg_signal = ekg_raw if args.do_denoise else denoise.denoise(ekg_raw, 1000, number_channels=8)
             peak_indices, segment_indices = ecgseg.predict('./2000-0.75.h5', ekg_signal)
 
         ekg_spectrograms = generate_spectrogram(ekg_raw, sampling_rates)

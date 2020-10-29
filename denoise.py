@@ -13,23 +13,28 @@ def wavelet_threshold(data, wavelet='sym8', noiseSigma=14):
     NWC = list(map(lambda x: pywt.threshold(x,threshold, mode='soft'), WC))
     return pywt.waverec(NWC, wavelet)
 
-def baseline_wander_removal(data):
-    baseline = medfilt(data, 201)
-    baseline = medfilt(baseline, 601)
+def baseline_wander_removal(data, fs):
+    def to_odd(x):
+        x = int(x)
+        return x if x % 2 == 1 else x + 1
+
+    baseline = medfilt(data, to_odd(fs*0.2))
+    baseline = medfilt(baseline, to_odd(fs*0.6))
     return data - baseline
 
-def _denoise_mp(signal):
-    return baseline_wander_removal(wavelet_threshold(signal))
+def _denoise_mp(signal, fs):
+    return baseline_wander_removal(wavelet_threshold(signal), fs)
 
 def denoise(*args, **kwargs):
     import warnings
     warnings.warn('The denoise.denoise function is deprecated, use denoise.ekg_denoise instead!', UserWarning)
     return ekg_denoise(*args, **kwargs)
 
-def ekg_denoise(data, number_channels=None):
+def ekg_denoise(data, fs, number_channels=None):
     '''Denoise the ekg data parallely and return.
     
     data: np.ndarray of shape [n_channels, n_samples]
+    fs: sampling rate of data
     number_channels: the first N channels to be processed
     '''
 
@@ -39,7 +44,7 @@ def ekg_denoise(data, number_channels=None):
         results = list()
 
         for i in range(number_channels):
-            results.append(workers.apply_async(_denoise_mp, (data[i], )))
+            results.append(workers.apply_async(_denoise_mp, (data[i], fs)))
 
         workers.close()
         workers.join()
