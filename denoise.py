@@ -1,6 +1,6 @@
 import numpy as np
 import pywt
-from scipy.signal import medfilt
+from scipy.ndimage.filters import median_filter
 
 import multiprocessing as mp
 
@@ -18,8 +18,8 @@ def baseline_wander_removal(data, fs):
         x = int(x)
         return x if x % 2 == 1 else x + 1
 
-    baseline = medfilt(data, to_odd(fs*0.2))
-    baseline = medfilt(baseline, to_odd(fs*0.6))
+    baseline = median_filter(data, to_odd(fs*0.2), mode='constant')
+    baseline = median_filter(baseline, to_odd(fs*0.6), mode='constant')
     return data - baseline
 
 def _denoise_mp(signal, fs):
